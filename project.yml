@@ -1,0 +1,71 @@
+name: Galerie
+options:
+  bundleIdPrefix: com.perso
+  createIntermediateGroups: true
+  deploymentTarget:
+    iOS: "18.5"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""
+targets:
+  Galerie:
+    type: application
+    platform: iOS
+    deploymentTarget: "18.5"
+    sources:
+      - path: Galerie
+    info:
+      path: Config/Info.plist
+      properties:
+        CFBundleDisplayName: Galerie
+        CFBundleDevelopmentRegion: fr
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSPhotoLibraryUsageDescription: "Galerie affiche, organise et modifie les photos et vidéos de ta photothèque. Rien n'est envoyé hors de ton appareil."
+        NSPhotoLibraryAddUsageDescription: "Galerie enregistre dans ta photothèque les copies et les modifications que tu valides."
+        LSApplicationQueriesSchemes:
+          - comgooglemaps
+        ITSAppUsesNonExemptEncryption: false
+        UIAppFonts: []
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.perso.galerie
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "Icon-Lens Icon-Gradient Icon-Glass Icon-Mono Icon-Rose Icon-Violet Icon-Blue Icon-Dark Icon-Light Icon-Multi Icon-Photo"
+        # --- Connexion avec Apple (compte développeur payant requis) ---
+        # 1) décommente la ligne suivante ; 2) décommente "entitlements" plus bas.
+        # SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) APPLE_SIGN_IN"
+    # entitlements:
+    #   path: Galerie/Galerie.entitlements
+    #   properties:
+    #     com.apple.developer.applesignin: [Default]
+  GalerieTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "18.5"
+    sources:
+      - path: GalerieTests
+    dependencies:
+      - target: Galerie
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.perso.galerie.tests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  Galerie:
+    build:
+      targets:
+        Galerie: all
+        GalerieTests: [test]
+    test:
+      targets:
+        - GalerieTests
