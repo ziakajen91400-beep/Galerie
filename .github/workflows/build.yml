@@ -1,0 +1,97 @@
+name: Build iOS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    # macOS 26 est expérimental : son échec ne fait pas échouer le workflow.
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            xcode_glob: "Xcode_16.4*"
+            experimental: false
+          - os: macos-26
+            xcode_glob: "Xcode_26*"
+            experimental: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sélection de Xcode
+        run: |
+          set -e
+          CAND=$(ls -d /Applications/${{ matrix.xcode_glob }}.app 2>/dev/null | sort -V | tail -1 || true)
+          if [ -z "$CAND" ]; then
+            echo "Xcode demandé introuvable, liste disponible :"; ls -d /Applications/Xcode*
+            CAND=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          fi
+          echo "Xcode utilisé : $CAND"
+          sudo xcode-select -s "$CAND/Contents/Developer"
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Installer XcodeGen
+        run: brew install xcodegen
+
+      - name: Générer le projet Xcode
+        run: xcodegen generate
+
+      - name: Compiler (sans signature)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Galerie.xcodeproj -scheme Galerie \
+            -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" \
+            2>&1 | tee build.log
+
+      - name: Tests unitaires (simulateur)
+        run: |
+          set -o pipefail
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k,v in d.items() if 'iOS' in k for x in v if 'iPhone' in x['name']))")
+          echo "Simulateur : $UDID"
+          xcodebuild test \
+            -project Galerie.xcodeproj -scheme Galerie \
+            -destination "id=$UDID" \
+            -derivedDataPath build-tests \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee test.log
+
+      - name: Créer l'IPA NON SIGNÉ
+        run: |
+          APP=$(find build/Build/Products -name "Galerie.app" -maxdepth 3 | head -1)
+          mkdir -p ipa/Payload
+          cp -R "$APP" ipa/Payload/
+          (cd ipa && zip -qr ../Galerie-unsigned.ipa Payload)
+          ls -lh Galerie-unsigned.ipa
+
+      - name: Vérifier les icônes alternatives
+        run: |
+          APP=$(find build/Build/Products -name "Galerie.app" -maxdepth 3 | head -1)
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIcons:CFBundleAlternateIcons" "$APP/Info.plist" || echo "Aucune icône alternative trouvée !"
+
+      - name: Publier l'IPA non signé
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Galerie-unsigned-ipa-${{ matrix.os }}
+          path: Galerie-unsigned.ipa
+
+      - name: Publier les journaux
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ matrix.os }}
+          path: |
+            build.log
+            test.log
