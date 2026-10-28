@@ -6,11 +6,14 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    # macOS 26 est expérimental : son échec ne fait pas échouer le workflow.
+    # macOS 26 est expérimental : son échec ne bloque pas le workflow.
     continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
@@ -41,7 +44,7 @@ jobs:
       - name: Installer XcodeGen
         run: brew install xcodegen
 
-      - name: Générer le projet Xcode
+      - name: Générer le projet
         run: xcodegen generate
 
       - name: Compiler (sans signature)
@@ -86,6 +89,17 @@ jobs:
         with:
           name: Galerie-unsigned-ipa-${{ matrix.os }}
           path: Galerie-unsigned.ipa
+
+      - name: Publier l'IPA dans les Releases (téléchargement direct, sans zip)
+        if: success() && matrix.os == 'macos-26'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ipa-latest --yes --cleanup-tag || true
+          gh release create ipa-latest Galerie-unsigned.ipa \
+            --title "Galerie (IPA non signé)" \
+            --notes "IPA non signé, à installer avec AltStore, SideStore, Sideloadly ou TrollStore." \
+            --prerelease
 
       - name: Publier les journaux
         if: always()
