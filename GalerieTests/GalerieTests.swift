@@ -1,4 +1,5 @@
 import XCTest
+import SwiftUI
 import MapKit
 @testable import Galerie
 
@@ -133,6 +134,7 @@ final class GalerieTests: XCTestCase {
         XCTAssertEqual(Fmt.duration(65), "1:05"); XCTAssertEqual(Fmt.duration(3661), "1:01:01")
         XCTAssertEqual(Fmt.shutter(1.0 / 120), "1/120 s")
     }
+    @MainActor
     func testIconResources() {
         for o in AppIconOption.all { XCTAssertNotNil(UIImage(named: o.preview), "aperçu manquant : \(o.preview)") }
         let alts = AppIconManager.configuredAlternates()
