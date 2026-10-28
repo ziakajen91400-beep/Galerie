@@ -1,0 +1,36 @@
+name: Déballer l'archive Galerie-source.zip
+
+# Pratique depuis un iPhone : tu envoies UN SEUL fichier (Galerie-source.zip) à la racine du dépôt,
+# ce workflow le décompresse, commit le résultat et lance la compilation.
+on:
+  push:
+    paths: ["Galerie-source.zip"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Décompresser
+        run: |
+          test -f Galerie-source.zip || { echo "Galerie-source.zip introuvable"; exit 1; }
+          unzip -o Galerie-source.zip -d _tmp
+          rm -f GalerieApp.swift          # ancien fichier à la racine (remplacé par Galerie/GalerieApp.swift)
+          cp -R _tmp/Galerie/. .
+          rm -rf _tmp Galerie-source.zip
+      - name: Commit
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "Galerie : refonte complète (import de l'archive)" || echo "Rien à valider"
+          git push
+      - name: Lancer la compilation
+        run: gh workflow run build.yml
+        env:
+          GH_TOKEN: ${{ github.token }}
