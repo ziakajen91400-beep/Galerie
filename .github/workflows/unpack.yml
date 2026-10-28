@@ -1,7 +1,5 @@
 name: Déballer l'archive Galerie-source.zip
 
-# Pratique depuis un iPhone : tu envoies UN SEUL fichier (Galerie-source.zip) à la racine du dépôt,
-# ce workflow le décompresse, commit le résultat et lance la compilation.
 on:
   push:
     paths: ["Galerie-source.zip"]
@@ -20,7 +18,8 @@ jobs:
         run: |
           test -f Galerie-source.zip || { echo "Galerie-source.zip introuvable"; exit 1; }
           unzip -o Galerie-source.zip -d _tmp
-          rm -f GalerieApp.swift          # ancien fichier à la racine (remplacé par Galerie/GalerieApp.swift)
+          rm -rf _tmp/Galerie/.github      # GitHub interdit de pousser des workflows avec ce jeton
+          rm -f GalerieApp.swift
           cp -R _tmp/Galerie/. .
           rm -rf _tmp Galerie-source.zip
       - name: Commit
@@ -34,3 +33,4 @@ jobs:
         run: gh workflow run build.yml
         env:
           GH_TOKEN: ${{ github.token }}
+
