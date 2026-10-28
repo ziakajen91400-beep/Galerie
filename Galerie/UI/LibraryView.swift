@@ -23,8 +23,9 @@ struct LibraryView: View {
                         if library.isLimited { limitedBanner }
                         filterBar
                         MediaGridView(list: library.list, token: "\(library.filter.rawValue)-\(library.version)-\(settings.prefs.libraryKey)",
-                                      isLibrary: true, emptyIcon: "photo", emptyTitle: library.isLoading ? "Chargement…" : "Aucun média",
-                                      emptyMessage: library.isLoading ? "" : "Aucun élément ne correspond à ce filtre.")
+                                      emptyIcon: "photo", emptyTitle: library.isLoading ? "Chargement…" : "Aucun média",
+                                      emptyMessage: library.isLoading ? "" : "Aucun élément ne correspond à ce filtre.",
+                                      isLibrary: true)
                     }
                 }
             }

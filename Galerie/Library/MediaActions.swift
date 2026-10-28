@@ -84,7 +84,7 @@ enum MediaActions {
         catch { await Haptics.shared.error(); return false }
     }
     static func revert(_ asset: PHAsset) async -> Bool {
-        guard asset.canPerform(.revert) else { return false }
+        guard asset.hasAdjustments else { return false }
         do { try await perform { PHAssetChangeRequest(for: asset).revertAssetContentToOriginal() }; await Haptics.shared.success(); return true }
         catch { await Haptics.shared.error(); return false }
     }

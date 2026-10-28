@@ -205,7 +205,7 @@ struct LocationDetailView: View {
             if let l = asset.location, asset.hasValidLocation {
                 ZStack(alignment: .bottom) {
                     Map(initialPosition: .region(MKCoordinateRegion(center: l.coordinate, latitudinalMeters: 1200, longitudinalMeters: 1200))) {
-                        Annotation("", coordinate: l.coordinate) {
+                        MapKit.Annotation("", coordinate: l.coordinate) {
                             AssetThumb(asset: asset, size: CGSize(width: 56, height: 56)).clipShape(RoundedRectangle(cornerRadius: 12))
                                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(.white, lineWidth: 2)).shadow(radius: 4)
                         }

@@ -165,7 +165,7 @@ struct MapExplorerView: View {
             ZStack(alignment: .bottom) {
                 Map(position: $position) {
                     ForEach(clusters) { c in
-                        Annotation("", coordinate: c.coordinate, anchor: .center) {
+                        MapKit.Annotation("", coordinate: c.coordinate, anchor: .center) {
                             ClusterMarker(cluster: c, isSelected: selected?.id == c.id)
                                 .onTapGesture { tap(c) }
                         }

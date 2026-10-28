@@ -36,7 +36,7 @@ enum CropMath {
             if nw > maxW { nw = maxW; nh = nw / nr }
             if nh > maxH { nh = maxH; nw = nh * nr }
         }
-        nw = max(nw, minSize); nh = max(nh, nr == nil ? minSize : minSize / max(nr, 0.1))
+        nw = max(nw, minSize); nh = max(nh, nr.map { minSize / max($0, 0.1) } ?? minSize)
         let x = sx > 0 ? anchor.x : anchor.x - nw, y = sy > 0 ? anchor.y : anchor.y - nh
         return CGRect(x: max(0, x), y: max(0, y), width: min(nw, 1), height: min(nh, 1))
     }

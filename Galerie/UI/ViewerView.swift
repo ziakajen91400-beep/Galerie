@@ -306,7 +306,7 @@ struct ViewerView: View {
             Button { slideshow = true } label: { Label("Diaporama", systemImage: "play.rectangle") }
             Button { showInfo = true } label: { Label("Informations", systemImage: "info.circle") }
             if asset.isLive { Button { Task { working = true; let ok = await MediaActions.saveLiveAsVideo(asset); working = false; app.showToast(ok ? "Vidéo enregistrée" : "Échec de l’enregistrement") } } label: { Label("Enregistrer comme vidéo", systemImage: "video") } }
-            if asset.canPerform(.revert) { Button { Task { let ok = await MediaActions.revert(asset); if ok { refresh() }; app.showToast(ok ? "Original rétabli" : "Impossible de rétablir") } } label: { Label("Rétablir l’original", systemImage: "arrow.uturn.backward") } }
+            if asset.hasAdjustments { Button { Task { let ok = await MediaActions.revert(asset); if ok { refresh() }; app.showToast(ok ? "Original rétabli" : "Impossible de rétablir") } } label: { Label("Rétablir l’original", systemImage: "arrow.uturn.backward") } }
             Divider()
             Button { Task { if await MediaActions.setHidden([asset], true) { dismiss() } } } label: { Label("Masquer", systemImage: "eye.slash") }
             Button(role: .destructive) { confirmDelete = true } label: { Label("Supprimer", systemImage: "trash") }
