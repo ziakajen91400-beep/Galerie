@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Génère les 12 icônes (1024x1024 opaques) + aperçus 256px dans Assets.xcassets."""
+"""Génère les 20 icônes (1024x1024 opaques) + aperçus 256px dans Assets.xcassets."""
 import json, math, os
 from PIL import Image, ImageDraw, ImageFilter
 
@@ -79,6 +79,13 @@ def glass_overlay(img):
     d.ellipse([-size*0.2, -size*0.55, size*1.2, size*0.45], fill=(255,255,255,55))
     over = over.filter(ImageFilter.GaussianBlur(size*0.01))
     return Image.alpha_composite(img.convert("RGBA"), over).convert("RGB")
+
+
+# ---------- Icônes « inspirées d’animés » : créations ORIGINALES (aucun personnage ni visuel officiel) ----------
+def lighten(c, t): return tuple(int(c[i] + (255 - c[i]) * t) for i in range(3))
+def darken(c, t): return tuple(int(c[i] * (1 - t)) for i in range(3))
+
+# Les icônes de personnages fictifs sont générées par Tools/make_characters.py
 
 W = (255,255,255)
 ICONS = {}

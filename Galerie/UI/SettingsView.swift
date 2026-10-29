@@ -22,6 +22,7 @@ struct SettingsView: View {
     @State private var search = ""
     @State private var confirmReset = false
     @State private var confirmClearIndex = false
+    @State private var showProfile = false
 
     private var p: Binding<Prefs> { $settings.prefs }
 
@@ -29,9 +30,7 @@ struct SettingsView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    if search.isEmpty {
-                        NavigationLink { NavigationStack { ProfileView() } } label: { profileRow }.buttonStyle(PressableStyle())
-                    }
+                    if search.isEmpty { profileHeader }
                     let groups = grouped
                     if groups.isEmpty { EmptyState(icon: "magnifyingglass", title: "Aucun réglage trouvé", message: "Essaie un autre mot : thème, haptique, carte…").frame(height: 260) }
                     ForEach(groups, id: \.0) { name, items in
@@ -50,7 +49,12 @@ struct SettingsView: View {
                 }.padding(14)
             }
             .themedScreen().navigationTitle("Réglages")
-            .searchable(text: $search, prompt: "Rechercher un réglage")
+            // Le champ de recherche reste replié (tirer l’écran vers le bas pour l’afficher) et le clavier
+            // se ferme au défilement : aucun clavier ne s’ouvre de lui-même dans les réglages.
+            .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Rechercher un réglage")
+            .scrollDismissesKeyboard(.interactively)
+            .onDisappear { Keyboard.dismiss() }
+            .sheet(isPresented: $showProfile) { NavigationStack { ProfileView() }.presentationDetents([.large]) }
             .confirmationDialog("Réinitialiser tous les réglages ?", isPresented: $confirmReset, titleVisibility: .visible) {
                 Button("Réinitialiser", role: .destructive) { settings.resetAll(); Haptics.shared.warning(); app.showToast("Réglages réinitialisés") }
                 Button("Annuler", role: .cancel) {}
@@ -71,16 +75,29 @@ struct SettingsView: View {
         return order.map { ($0, map[$0]!) }
     }
 
-    private var profileRow: some View {
-        HStack(spacing: 14) {
-            AvatarView(size: 54)
-            VStack(alignment: .leading, spacing: 2) {
-                let n = settings.prefs.profileName.isEmpty ? settings.prefs.appleName : settings.prefs.profileName
-                Text(n.isEmpty ? "Mon profil" : n).gFont(.headline)
-                Text("\(library.photoCount) photos · \(library.videoCount) vidéos").gFont(.caption).foregroundStyle(pal.textSecondary)
+    /// Profil en haut de la page : photo, prénom, nom, compte associé réel (jamais inventé) et accès à la modification.
+    private var profileHeader: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 14) {
+                AvatarView(size: 66)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(settings.prefs.displayFullName.isEmpty ? "Mon profil" : settings.prefs.displayFullName).gFont(.title).lineLimit(2)
+                    Text(settings.prefs.accountLine).gFont(.caption).foregroundStyle(pal.textSecondary).lineLimit(1)
+                    Text("\(library.photoCount) photos · \(library.videoCount) vidéos").gFont(.small).foregroundStyle(pal.textSecondary)
+                }
+                Spacer(minLength: 0)
             }
-            Spacer(); Image(systemName: "chevron.right").foregroundStyle(pal.textSecondary)
-        }.padding(14).background(RoundedRectangle(cornerRadius: 18).fill(pal.card)).overlay(RoundedRectangle(cornerRadius: 18).stroke(pal.border, lineWidth: 0.5))
+            Button { Haptics.shared.light(); showProfile = true } label: {
+                HStack { Image(systemName: "pencil"); Text("Modifier le profil").gFont(.body) }
+                    .frame(maxWidth: .infinity, minHeight: 40)
+                    .background(Capsule().fill(pal.accent.opacity(0.14)))
+                    .foregroundStyle(pal.accent)
+                    .contentShape(Capsule())
+            }.buttonStyle(PressableStyle())
+        }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(pal.card))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(pal.border, lineWidth: 0.5))
     }
 
     // MARK: Réglages
@@ -130,6 +147,15 @@ struct SettingsView: View {
                 Picker("Style", selection: p.panelStyle) { ForEach(PanelStyle.allCases) { Text($0.label).tag($0) } }.pickerStyle(.segmented)
                 Text("Liquid Glass natif sur iOS 26 ; matériau translucide sur les versions précédentes.").gFont(.small).foregroundStyle(pal.textSecondary) }
         })
+        list.append(item("glass", ap, "Intensité du Liquid Glass", "verre transparence reflets teinte faible moyen élevé") {
+            VStack(alignment: .leading, spacing: 8) { Text("Intensité du Liquid Glass").gFont(.body)
+                Picker("Intensité", selection: p.glassLevel) { ForEach(GlassLevel.allCases) { Text($0.label).tag($0) } }.pickerStyle(.segmented)
+                    .onChange(of: settings.prefs.glassLevel) { _, _ in Haptics.shared.selection() }
+                Text("Faible : très transparent et discret. Moyen : équilibré. Élevé : teinte et reflets plus marqués. Ne change pas la navigation.").gFont(.small).foregroundStyle(pal.textSecondary) }
+        })
+        list.append(item("dock", ap, "Barre de navigation", "dock onglets boutons ordre personnaliser glisser") {
+            link("Barre de navigation", "dock.rectangle", value: "\(settings.dock.count) onglets") { DockSettingsView() }
+        })
         list.append(item("density", ap, "Densité de la grille", "colonnes zoom vignettes") {
             HStack { Text("Colonnes").gFont(.body); Spacer()
                 Picker("Colonnes", selection: p.gridColumns) { ForEach([2, 3, 4, 5, 6, 8, 10], id: \.self) { Text("\($0)").tag($0) } }.pickerStyle(.menu) }
@@ -173,11 +199,21 @@ struct SettingsView: View {
         })
 
         // Haptique
-        list.append(item("haptics", ha, "Retour haptique", "vibration taptic haptique") {
-            ToggleRow(title: "Retour haptique", subtitle: "Navigation, sélection, favoris, menus, succès et erreurs", isOn: Binding(get: { settings.prefs.hapticsEnabled }, set: { v in
-                settings.prefs.hapticsEnabled = v
-                if v { Haptics.shared.medium() }
-            }))
+        list.append(item("haptics", ha, "Retour haptique", "vibration taptic haptique intensité force") {
+            VStack(alignment: .leading, spacing: 10) {
+                ToggleRow(title: "Retour haptique", subtitle: "Navigation, sélection, favoris, menus, succès et erreurs", isOn: Binding(get: { settings.prefs.hapticsEnabled }, set: { v in
+                    settings.prefs.hapticsEnabled = v
+                    if v { Haptics.shared.preview() }
+                }))
+                if settings.prefs.hapticsEnabled {
+                    Text("Intensité").gFont(.body)
+                    Picker("Intensité", selection: Binding(get: { settings.prefs.hapticsIntensity }, set: { v in
+                        settings.prefs.hapticsIntensity = v; Haptics.shared.preview()
+                    })) { ForEach(HapticIntensity.allCases) { Text($0.label).tag($0) } }.pickerStyle(.segmented)
+                    Button("Tester la vibration") { Haptics.shared.preview() }.gFont(.body)
+                    Text("Chaque niveau change le style et la force réels de la vibration (léger, moyen, rigide). Les retours de succès et d’erreur sont des motifs système fixes. Les iPad et certains appareils sans moteur Taptic ne vibrent pas.").gFont(.small).foregroundStyle(pal.textSecondary)
+                }
+            }
         })
 
         // Confidentialité
@@ -250,6 +286,13 @@ struct SettingsView: View {
                     Task { await memories.refresh(prefs: settings.prefs, geo: geo, force: true) }
                 }.gFont(.body)
             }
+        })
+
+        list.append(item("assistant", so, "Assistant", "assistant suggestions albums fonds d’écran") {
+            Button { app.select(.assistant) } label: {
+                HStack { Image(systemName: "sparkles").foregroundStyle(pal.accent).frame(width: 26); Text("Ouvrir l’assistant").gFont(.body); Spacer()
+                    Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(pal.textSecondary) }.contentShape(Rectangle())
+            }.buttonStyle(.plain)
         })
 
         // Application

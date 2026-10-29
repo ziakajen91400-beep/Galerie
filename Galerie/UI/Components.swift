@@ -8,15 +8,30 @@ struct GlassModifier<S: Shape>: ViewModifier {
     var tint: Color?
     var interactive = false
 
+    private var level: GlassLevel { settings.prefs.glassLevel }
+    /// Opacité de la teinte : réduite par rapport à l’ancienne version (trop teintée) et réglable.
+    /// Une teinte demandée explicitement (bouton sélectionné) reste lisible.
+    private var tintOpacity: Double { pal.glassOpacity * (tint == nil ? level.tintFactor : max(level.tintFactor, 0.5)) }
+
+    /// Contour lumineux fin + reflet supérieur : donnent de la profondeur sans bordure marquée ni fond opaque.
+    /// Ces calques ne captent jamais les touches.
+    private func sheen(_ content: some View) -> some View {
+        content
+            .overlay(shape.stroke(LinearGradient(colors: [.white.opacity(0.55 * level.highlight), .white.opacity(0.03), .white.opacity(0.22 * level.highlight)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.6).allowsHitTesting(false))
+            .overlay(shape.fill(LinearGradient(colors: [.white.opacity(0.10 * level.highlight), .clear], startPoint: .top, endPoint: .center)).allowsHitTesting(false))
+    }
+
     @ViewBuilder func body(content: Content) -> some View {
         if settings.prefs.panelStyle == .solid {
             content.background(shape.fill(pal.surface)).overlay(shape.stroke(pal.border, lineWidth: 0.6))
         } else {
             #if compiler(>=6.2)
             if #available(iOS 26.0, *) {
-                let t = (tint ?? pal.glassTint).opacity(pal.glassOpacity)
-                if interactive { content.glassEffect(.regular.tint(t).interactive(), in: shape) }
-                else { content.glassEffect(.regular.tint(t), in: shape) }
+                let t = (tint ?? pal.glassTint).opacity(tintOpacity)
+                let base: Glass = (level == .low) ? .clear : .regular
+                let g: Glass = base.tint(t)
+                if interactive { sheen(content.glassEffect(g.interactive(), in: shape)) }
+                else { sheen(content.glassEffect(g, in: shape)) }
             } else { legacy(content) }
             #else
             legacy(content)
@@ -25,11 +40,13 @@ struct GlassModifier<S: Shape>: ViewModifier {
     }
 
     private func legacy(_ content: Content) -> some View {
-        content
-            .background(.ultraThinMaterial, in: shape)
-            .background(shape.fill((tint ?? pal.glassTint).opacity(pal.glassOpacity * 0.6)))
-            .overlay(shape.stroke(LinearGradient(colors: [.white.opacity(0.45), .white.opacity(0.05), .white.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.8))
-            .shadow(color: pal.shadow.opacity(0.18), radius: 14, y: 6)
+        let mat: Material = level == .high ? .thinMaterial : .ultraThinMaterial
+        return sheen(
+            content
+                .background(mat, in: shape)
+                .background(shape.fill((tint ?? pal.glassTint).opacity(tintOpacity * 0.8)))
+        )
+        .shadow(color: pal.shadow.opacity(level == .low ? 0.08 : 0.16), radius: 12, y: 5)
     }
 }
 extension View {
@@ -62,6 +79,7 @@ struct GlassIconButton: View {
                 .foregroundStyle(selected ? pal.accent : pal.icon)
                 .frame(width: size, height: size)
                 .glass(Circle(), tint: selected ? pal.accent : nil, interactive: true)
+                .contentShape(Circle())
         }
         .buttonStyle(PressableStyle())
         .accessibilityLabel(label)
@@ -169,9 +187,15 @@ extension View {
 }
 struct ThemedScreen: ViewModifier {
     @Environment(\.pal) private var pal
+    @Environment(\.backdrop) private var backdrop
     func body(content: Content) -> some View {
         content
-            .background(pal.bg.ignoresSafeArea())
+            .background {
+                ZStack {
+                    pal.bg
+                    if let b = backdrop { BackdropView(spec: b, pal: pal, dark: b.dark) }
+                }.ignoresSafeArea()
+            }
             .toolbarBackground(pal.nav, for: .navigationBar)
     }
 }

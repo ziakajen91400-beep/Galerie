@@ -29,7 +29,7 @@ Galerie/Library             PhotoKit : bibliothèque, vignettes, actions, albums
 Galerie/UI                  Navigation 5 onglets, grille, visionneuse, collections, recherche, réglages
 Galerie/Features            Infos/EXIF, carte, souvenirs, analyse Vision locale, profil, apparence
 Galerie/Editor              Éditeur photo (Core Image) et vidéo (AVFoundation)
-Galerie/Assets.xcassets     12 icônes d'app + aperçus (générées par Tools/make_icons.py)
+Galerie/Assets.xcassets     21 icônes d'app (12 classiques + 9 personnages fictifs) + illustrations (Tools/make_icons.py, Tools/make_characters.py)
 GalerieTests                Tests unitaires
 .github/workflows           build.yml (CI) · unpack.yml (import depuis iPhone)
 ```
@@ -39,3 +39,17 @@ Autorisation complète/limitée · grille avec vos vraies photos · pincement ·
 
 ## Limites iOS (résumé — détail dans Réglages › Aide et limites)
 Pas d'accès à « Supprimés récemment », personnes/animaux, album partagé en famille, date d'ajout, état iCloud · légendes/mots-clés stockés dans l'app uniquement · réglages d'édition = approximations Core Image (pas les algorithmes d'Apple) · mixages audio Apple non reproduits · gain map HDR et partie animée des Live Photos perdues à l'édition.
+
+
+## Personnages fictifs, thèmes et icônes
+
+Neuf personnages féminins **originaux** (aucun personnage existant n'est reproduit) : cinq sœurs « Cinq fleurs » (Sakura, Sora, Midori, Akane, Murasaki), puis Yuki, Luna, Hikari et Nekomi. Chacun a un thème (palette, motif, illustration en fond, aperçu avant activation, retour au thème d'origine) et une icône d'écran d'accueil assortie (Réglages › Icône de l'app, ou bouton « Appliquer l'icône assortie » dans le thème).
+
+Le bouton « Revenir à l'icône d'origine » est toujours actif (correction du bug où l'icône d'origine ne pouvait plus être réappliquée).
+
+Les images sont générées par `python3 Tools/make_characters.py` (Pillow) et incluses dans le catalogue d'assets.
+
+## Non implémenté volontairement
+
+- Connexion Google : exige un client OAuth Google Cloud (identifiants propres à ton compte) ; aucun faux bouton n'a été ajouté.
+- Connexion Apple : nécessite un compte développeur payant (voir plus haut).

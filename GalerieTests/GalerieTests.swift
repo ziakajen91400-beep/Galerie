@@ -134,6 +134,21 @@ final class GalerieTests: XCTestCase {
         XCTAssertEqual(Fmt.duration(65), "1:05"); XCTAssertEqual(Fmt.duration(3661), "1:01:01")
         XCTAssertEqual(Fmt.shutter(1.0 / 120), "1/120 s")
     }
+    func testFictionalCharacterThemes() {
+        let chars = Theme.presets.compactMap(\.character)
+        XCTAssertEqual(chars.count, 9)
+        XCTAssertEqual(Set(chars).count, 9, "personnages uniques")
+        for c in chars {
+            XCTAssertNotNil(UIImage(named: "Char-" + c), "illustration manquante : \(c)")
+            XCTAssertNotNil(UIImage(named: "CharFace-" + c), "visage manquant : \(c)")
+            XCTAssertNotNil(AppIconOption.matching(character: c), "icône assortie manquante : \(c)")
+        }
+    }
+    func testOriginalIconIsRevertible() {
+        let o = AppIconOption.all.first { $0.id.isEmpty }
+        XCTAssertNotNil(o)
+        XCTAssertNil(o?.altName, "l’icône d’origine doit correspondre à setAlternateIconName(nil)")
+    }
     @MainActor
     func testIconResources() {
         for o in AppIconOption.all { XCTAssertNotNil(UIImage(named: o.preview), "aperçu manquant : \(o.preview)") }

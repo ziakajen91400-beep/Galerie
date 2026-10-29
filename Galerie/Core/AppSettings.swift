@@ -33,6 +33,27 @@ enum FontWeightPref: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum GlassLevel: String, Codable, CaseIterable, Identifiable {
+    case low, medium, high
+    var id: String { rawValue }
+    var label: String { self == .low ? "Faible" : (self == .medium ? "Moyen" : "Élevé") }
+    /// Part de la teinte du thème conservée dans le verre (0 = totalement transparent).
+    var tintFactor: Double { self == .low ? 0.12 : (self == .medium ? 0.30 : 0.55) }
+    /// Intensité des reflets et des contours lumineux.
+    var highlight: Double { self == .low ? 0.35 : (self == .medium ? 0.65 : 1.0) }
+}
+
+enum HapticIntensity: String, Codable, CaseIterable, Identifiable {
+    case light, medium, strong
+    var id: String { rawValue }
+    var label: String { self == .light ? "Faible" : (self == .medium ? "Moyenne" : "Forte") }
+}
+
+/// Onglets de la barre de navigation : identifiants stockés dans les réglages.
+enum DockDefaults {
+    static let tabs = ["collections", "search", "library", "map", "settings"]
+}
+
 struct Prefs: Codable, Equatable {
     var appearance: AppearanceMode = .system
     var themeID: String = "galerie"
@@ -61,6 +82,15 @@ struct Prefs: Codable, Equatable {
     var loopVideos: Bool = false
     var slideshowSeconds: Double = 3
     var hapticsEnabled: Bool = true
+    var hapticsIntensity: HapticIntensity = .medium
+    var glassLevel: GlassLevel = .medium
+    var dockTabs: [String] = DockDefaults.tabs
+    var dockSwipe: Bool = true
+    var profileFirstName: String = ""
+    var profileLastName: String = ""
+    var profileContact: String = ""
+    var backdropOpacity: Double = 0.6
+    var assistantDismissed: [String] = []
     var allowGeocoding: Bool = false
     var intelligenceEnabled: Bool = false
     var intelligenceLimit: Int = 2000
@@ -87,6 +117,7 @@ final class AppSettings: ObservableObject {
     @Published var prefs: Prefs {
         didSet {
             Haptics.enabled = prefs.hapticsEnabled
+            Haptics.intensity = prefs.hapticsIntensity
             if let d = try? JSONEncoder().encode(prefs) { UserDefaults.standard.set(d, forKey: Self.key) }
         }
     }
@@ -104,6 +135,7 @@ final class AppSettings: ObservableObject {
         }
         prefs = p
         Haptics.enabled = p.hapticsEnabled
+        Haptics.intensity = p.hapticsIntensity
     }
 
     var animationsOn: Bool { !(prefs.reduceAnimations || UIAccessibility.isReduceMotionEnabled) }

@@ -143,7 +143,19 @@ struct SearchView: View {
                 }
             }
             .themedScreen().navigationTitle("Recherche").navigationBarTitleDisplayMode(.inline)
+            // Le clavier se ferme en faisant défiler les résultats ou les suggestions.
+            .scrollDismissesKeyboard(.interactively)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Terminé") { focused = false }.fontWeight(.semibold)
+                }
+            }
         }
+        // Cause du clavier « bloqué » : cet écran reste en mémoire quand on change d’onglet, et son champ gardait le focus.
+        // Chaque changement d’onglet / ouverture de photo envoie cette notification : le focus est retiré à la source.
+        .onReceive(NotificationCenter.default.publisher(for: .galerieResignFocus)) { _ in focused = false }
+        .onDisappear { focused = false }
         .onChange(of: query) { _, _ in schedule() }
         .onChange(of: spec) { _, _ in schedule() }
     }
@@ -152,10 +164,11 @@ struct SearchView: View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass").foregroundStyle(pal.textSecondary)
             TextField("Date, lieu, légende, texte, objet…", text: $query).focused($focused).gFont(.body).submitLabel(.search)
-                .onSubmit { settings.addSearch(query) }.autocorrectionDisabled()
+                .onSubmit { settings.addSearch(query); focused = false }.autocorrectionDisabled()
             if !query.isEmpty { Button { query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(pal.textSecondary) }.accessibilityLabel("Effacer") }
         }
         .padding(12).glass(RoundedRectangle(cornerRadius: 16, style: .continuous)).padding(.horizontal, 14).padding(.top, 6)
+        .contentShape(Rectangle()).onTapGesture { focused = true }
     }
 
     private var filterBar: some View {

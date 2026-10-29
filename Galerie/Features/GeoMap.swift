@@ -98,6 +98,19 @@ private struct MapFilter: Equatable {
     var albumID: String? = nil
 }
 
+/// Évite de relire PhotoKit à chaque réaffichage d’un repère de la carte.
+@MainActor
+final class AssetCache {
+    static let shared = AssetCache()
+    private let cache = NSCache<NSString, PHAsset>()
+    func asset(_ id: String) -> PHAsset? {
+        if let a = cache.object(forKey: id as NSString) { return a }
+        guard let a = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil).firstObject else { return nil }
+        cache.setObject(a, forKey: id as NSString)
+        return a
+    }
+}
+
 struct GeoThumb: View {
     let id: String
     var size: CGFloat = 54
@@ -107,7 +120,7 @@ struct GeoThumb: View {
             if let asset { AssetThumb(asset: asset, size: CGSize(width: size, height: size)) } else { Color.gray.opacity(0.3) }
         }
         .frame(width: size, height: size)
-        .onAppear { if asset == nil { asset = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil).firstObject } }
+        .onAppear { if asset == nil { asset = AssetCache.shared.asset(id) } }
     }
 }
 
@@ -126,8 +139,8 @@ struct MapExplorerView: View {
     @State private var filter = MapFilter()
     @State private var albumIDs: Set<String> = []
     @State private var albums: [PHAssetCollection] = []
-    @State private var panel: CGFloat = 0.28     // fraction de la hauteur
-    @State private var dragStart: CGFloat?
+    @State private var expandTick = 0
+    @State private var years: [Int] = []
     @State private var clusterTask: Task<Void, Never>?
     @State private var didFit = false
 
@@ -155,8 +168,8 @@ struct MapExplorerView: View {
             .navigationTitle("Carte").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .topBarTrailing) { filterMenu } }
         }
-        .task { await geo.ensureLoaded() }
-        .onChange(of: geo.loaded) { _, l in if l { fitAll(); recompute() } }
+        .task { await geo.ensureLoaded(); years = Array(Set(geo.points.map(\.year))).sorted(by: >) }
+        .onChange(of: geo.loaded) { _, l in if l { years = Array(Set(geo.points.map(\.year))).sorted(by: >); fitAll(); recompute() } }
         .onChange(of: filter) { _, _ in selected = nil; Task { await refreshAlbumIDs(); fitAll(); recompute() } }
     }
 
@@ -183,47 +196,18 @@ struct MapExplorerView: View {
                 }
                 .overlay(alignment: .top) { if self.geo.loading { ProgressView("Lecture des lieux…").gFont(.caption).padding(10).glass(Capsule()).padding(.top, 8) } }
 
-                panelView(height: geo.size.height)
+                MapPanelView(ids: selected?.ids ?? visible.map(\.id), isSelected: selected != nil, height: geo.size.height, expandTick: expandTick) {
+                    selected = nil
+                }
             }
         }
-    }
-
-    // MARK: Panneau inférieur
-    private func panelView(height: CGFloat) -> some View {
-        let ids: [String] = selected?.ids ?? visible.map(\.id)
-        let h = max(88, height * panel)
-        return VStack(spacing: 0) {
-            Capsule().fill(pal.textSecondary.opacity(0.5)).frame(width: 40, height: 5).padding(.top, 8).padding(.bottom, 6)
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(selected == nil ? "Dans cette zone" : "Ce lieu").gFont(.headline)
-                    Text("\(ids.count) média\(ids.count > 1 ? "s" : "")").gFont(.caption).foregroundStyle(pal.textSecondary)
-                }
-                Spacer()
-                if selected != nil { Button("Zone visible") { Haptics.shared.light(); selected = nil }.gFont(.caption) }
-            }.padding(.horizontal, 16).padding(.bottom, 8)
-            if panel > 0.2 { PanelGrid(ids: ids) }
-            Spacer(minLength: 0)
-        }
-        .frame(height: h)
-        .frame(maxWidth: .infinity)
-        .glass(UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28))
-        .gesture(DragGesture().onChanged { v in
-            if dragStart == nil { dragStart = panel }
-            panel = min(0.85, max(0.1, (dragStart ?? panel) - v.translation.height / height))
-        }.onEnded { _ in
-            dragStart = nil
-            let snaps: [CGFloat] = [0.12, 0.3, 0.6, 0.85]
-            let target = snaps.min { abs($0 - panel) < abs($1 - panel) } ?? 0.3
-            Haptics.shared.light(); settings.animate { panel = target }
-        })
     }
 
     // MARK: Logique
     private func tap(_ c: GeoCluster) {
         Haptics.shared.selection()
         if c.count == 1 { openViewer(ids: c.ids, startID: c.repID); return }
-        settings.animate { selected = c; if panel < 0.3 { panel = 0.3 } }
+        settings.animate { selected = c }; expandTick += 1
         if c.spread > 0.0005 {
             let region = MKCoordinateRegion(center: c.coordinate, span: MKCoordinateSpan(latitudeDelta: max(c.spread * 1.8, 0.004), longitudeDelta: max(c.spread * 1.8, 0.004)))
             withAnimation(.easeInOut(duration: 0.5)) { position = .region(region) }
@@ -272,7 +256,6 @@ struct MapExplorerView: View {
     }
 
     private var filterMenu: some View {
-        let years = Array(Set(geo.points.map(\.year))).sorted(by: >)
         return Menu {
             Picker("Année", selection: $filter.year) {
                 Text("Toutes les années").tag(Int?.none)
@@ -320,6 +303,7 @@ struct ClusterMarker: View {
 
 struct PanelGrid: View {
     let ids: [String]
+    var scrollEnabled = true
     @EnvironmentObject private var app: AppState
     @State private var assets: [PHAsset] = []
     var body: some View {
@@ -334,10 +318,91 @@ struct PanelGrid: View {
                 }
                 if ids.count > assets.count { Text("+ \(ids.count - assets.count) autres : zoome pour les voir").font(.caption).padding() }
             }
+            .scrollDisabled(!scrollEnabled)
         }
         .task(id: ids.count) {
             let list = Array(ids.prefix(400))
             assets = await Task.detached { AssetFetch.sorted(ids: list) }.value
         }
+    }
+}
+
+
+/// Panneau inférieur de la carte, déplaçable (réduit · intermédiaire · développé).
+///
+/// Cause du geste « qui ne marche pas » : l’ancien geste lisait `translation` dans le repère de la vue,
+/// alors que la vue elle-même changeait de hauteur à chaque image (boucle de rétroaction : le panneau
+/// sautait ou ne bougeait pas). Le geste utilise maintenant le repère global, donc stable, et un projeté de
+/// fin de geste pour que le panneau suive l’élan du doigt. L’état du panneau est local : glisser ne redessine
+/// plus la carte.
+struct MapPanelView: View {
+    let ids: [String]
+    let isSelected: Bool
+    let height: CGFloat
+    let expandTick: Int
+    let onShowVisible: () -> Void
+
+    @EnvironmentObject private var settings: AppSettings
+    @Environment(\.pal) private var pal
+    @State private var panel: CGFloat = 0.38
+    @State private var dragStart: CGFloat?
+
+    private let snaps: [CGFloat] = [0.14, 0.38, 0.85]
+
+    var body: some View {
+        let h = max(96, height * panel)
+        let expanded = panel > 0.6
+        let shape = UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28)
+        VStack(spacing: 0) {
+            VStack(spacing: 0) {
+                Capsule().fill(pal.textSecondary.opacity(0.5)).frame(width: 44, height: 5).padding(.top, 8).padding(.bottom, 6)
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(isSelected ? "Ce lieu" : "Dans cette zone").gFont(.headline)
+                        Text("\(ids.count) média\(ids.count > 1 ? "s" : "")").gFont(.caption).foregroundStyle(pal.textSecondary)
+                    }
+                    Spacer()
+                    if isSelected { Button("Zone visible") { Haptics.shared.light(); onShowVisible() }.gFont(.caption).frame(minHeight: 36) }
+                }.padding(.horizontal, 16).padding(.bottom, 8)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+            .gesture(drag)
+            .onTapGesture { cycle() }
+            if panel > 0.2 {
+                PanelGrid(ids: ids, scrollEnabled: expanded)
+                    // Réduit / intermédiaire : toute la zone des photos déplace le panneau. Développé : la liste défile librement.
+                    .gesture(drag, including: expanded ? .subviews : .all)
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(height: h)
+        .frame(maxWidth: .infinity)
+        .glass(shape)
+        .contentShape(shape)
+        .onChange(of: expandTick) { _, _ in if panel < 0.38 { settings.animate { panel = 0.38 } } }
+    }
+
+    private var drag: some Gesture {
+        DragGesture(minimumDistance: 6, coordinateSpace: .global)
+            .onChanged { v in
+                if dragStart == nil { dragStart = panel }
+                panel = min(0.9, max(0.1, (dragStart ?? panel) - v.translation.height / max(height, 1)))
+            }
+            .onEnded { v in
+                let start = dragStart ?? panel
+                dragStart = nil
+                let projected = start - v.predictedEndTranslation.height / max(height, 1)
+                let target = snaps.min { abs($0 - projected) < abs($1 - projected) } ?? 0.38
+                Haptics.shared.light()
+                settings.animate { panel = target }
+            }
+    }
+
+    /// Un appui sur la poignée fait passer au cran suivant (accessibilité et confort).
+    private func cycle() {
+        Haptics.shared.light()
+        let next = snaps.first { $0 > panel + 0.02 } ?? snaps[0]
+        settings.animate { panel = next }
     }
 }

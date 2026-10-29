@@ -40,7 +40,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.perso.galerie
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "Icon-Lens Icon-Gradient Icon-Glass Icon-Mono Icon-Rose Icon-Violet Icon-Blue Icon-Dark Icon-Light Icon-Multi Icon-Photo"
+        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "Icon-Lens Icon-Gradient Icon-Glass Icon-Mono Icon-Rose Icon-Violet Icon-Blue Icon-Dark Icon-Light Icon-Multi Icon-Photo Icon-Sakura Icon-Sora Icon-Midori Icon-Akane Icon-Murasaki Icon-Yuki Icon-Luna Icon-Hikari Icon-Nekomi"
         # --- Connexion avec Apple (compte développeur payant requis) ---
         # 1) décommente la ligne suivante ; 2) décommente "entitlements" plus bas.
         # SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) APPLE_SIGN_IN"

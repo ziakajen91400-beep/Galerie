@@ -25,6 +25,10 @@ struct Theme: Codable, Identifiable, Equatable {
     var isCustom: Bool = false
     var light: ThemePalette
     var dark: ThemePalette
+    /// Motif décoratif dessiné par code (nil = aucun). Voir ThemeArt.swift.
+    var art: String? = nil
+    /// Personnage fictif embarqué (assets « Char-<id> », « CharFace-<id> ») : nil = aucun.
+    var character: String? = nil
 
     /// Génère une paire clair/sombre harmonieuse à partir d’une teinte.
     /// - hue : 0...1, tint : intensité de la teinte (0 = gris neutre), darkBrightness : luminosité du fond sombre.
@@ -106,8 +110,48 @@ struct Theme: Codable, Identifiable, Equatable {
         blanc.light.background = "FFFFFFFF"; blanc.light.surface = "FFFFFFFF"; blanc.light.card = "F7F7F8FF"
         blanc.light.accent = "111111FF"
         list.append(blanc)
+        list.append(contentsOf: Theme.animeThemes())
         return list
     }()
+
+    /// Thèmes à personnages FICTIFS originaux (dessinés pour l’app) : palette, motif, personnage et icône assortie.
+    static func animeThemes() -> [Theme] {
+        var out: [Theme] = []
+        // Cinq sœurs : une couleur et un personnage chacune.
+        for i in 0..<5 {
+            var t = Theme.generated(id: "fleur-\(QuintPalette.ids[i])", name: "Cinq fleurs · \(QuintPalette.names[i])", hue: QuintPalette.hues[i], tint: 0.55, darkBrightness: 0.09)
+            let c = QuintPalette.colors[i].hexString
+            t.light.accent = c; t.dark.accent = c
+            t.light.glassTint = c; t.dark.glassTint = c
+            t.art = "quint-\(i)"; t.character = QuintPalette.ids[i]
+            out.append(t)
+        }
+        // Yuki : blanc glacé, bleu nuit, accent cramoisi.
+        var yuki = Theme.generated(id: "yuki", name: "Yuki · Neige", hue: 0.62, tint: 0.30, darkBrightness: 0.07)
+        yuki.light.background = "F3F6FDFF"; yuki.light.accent = "D4283EFF"; yuki.dark.accent = "FF6377FF"
+        yuki.dark.background = "090E1CFF"; yuki.light.glassTint = "DCE6FFFF"; yuki.dark.glassTint = "5C74C0FF"
+        yuki.art = "yuki"; yuki.character = "yuki"
+        out.append(yuki)
+        // Luna : violet nuit, accent magenta, lune et étoiles.
+        var luna = Theme.generated(id: "luna", name: "Luna · Minuit lapin", hue: 0.80, tint: 0.90, darkBrightness: 0.05)
+        luna.light.background = "F7F1FBFF"; luna.light.accent = "C21E7AFF"; luna.dark.accent = "FF5CA8FF"
+        luna.dark.background = "0B0713FF"; luna.light.glassTint = "F1DDF7FF"; luna.dark.glassTint = "7A2D8CFF"
+        luna.art = "luna"; luna.character = "luna"
+        out.append(luna)
+        // Hikari : or et orange, étoiles.
+        var hikari = Theme.generated(id: "hikari", name: "Hikari · Étoile", hue: 0.10, tint: 0.85, darkBrightness: 0.07)
+        hikari.light.background = "FFF8EAFF"; hikari.light.accent = "E8791AFF"; hikari.dark.accent = "FFB347FF"
+        hikari.dark.background = "130D05FF"; hikari.light.glassTint = "FFE9B8FF"; hikari.dark.glassTint = "8A5A14FF"
+        hikari.art = "hikari"; hikari.character = "hikari"
+        out.append(hikari)
+        // Nekomi : caramel et crème, pattes de chat.
+        var neko = Theme.generated(id: "nekomi", name: "Nekomi · Café", hue: 0.07, tint: 0.60, darkBrightness: 0.08)
+        neko.light.background = "FBF3EAFF"; neko.light.accent = "B8693CFF"; neko.dark.accent = "E8A070FF"
+        neko.dark.background = "120C08FF"; neko.light.glassTint = "F6E2CCFF"; neko.dark.glassTint = "7A4A2CFF"
+        neko.art = "nekomi"; neko.character = "nekomi"
+        out.append(neko)
+        return out
+    }
 }
 
 /// Couleurs résolues pour le mode courant (clair/sombre) : c’est ce que lisent les vues.
@@ -167,6 +211,7 @@ final class ThemeStore: ObservableObject {
 struct ThemedRoot: View {
     @EnvironmentObject var settings: AppSettings
     @EnvironmentObject var themes: ThemeStore
+    @EnvironmentObject var backdrops: BackdropStore
     @EnvironmentObject var fonts: FontStore
     @Environment(\.colorScheme) private var scheme
 
@@ -174,8 +219,12 @@ struct ThemedRoot: View {
         let p = settings.prefs
         let dark = p.appearance == .dark || (p.appearance == .system && scheme == .dark)
         let pal = themes.palette(id: p.themeID, dark: dark, accent: p.customAccent ? p.accentHex : nil)
+        let theme = themes.theme(p.themeID)
+        let img = backdrops.image(p.themeID)
+        let spec: BackdropSpec? = (theme.art != nil || img != nil) ? BackdropSpec(art: theme.art, image: img, opacity: p.backdropOpacity, dark: dark, character: theme.character) : nil
         RootView()
             .environment(\.pal, pal)
+            .environment(\.backdrop, spec)
             .tint(pal.accent)
             .foregroundStyle(pal.text)
             .preferredColorScheme(p.appearance.scheme)

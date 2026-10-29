@@ -3,6 +3,23 @@ import Photos
 import PhotosUI
 import AuthenticationServices
 
+extension Prefs {
+    /// Prénom + nom ; à défaut l’ancien champ « nom » puis le nom fourni par Apple (si connexion Apple active).
+    var displayFullName: String {
+        let n = [profileFirstName, profileLastName].map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.joined(separator: " ")
+        if !n.isEmpty { return n }
+        if !profileName.trimmingCharacters(in: .whitespaces).isEmpty { return profileName }
+        return appleName
+    }
+    /// Identifiant réellement disponible. Rien n’est inventé : sans connexion Apple, le profil est dit « local ».
+    var accountLine: String {
+        if !appleUserID.isEmpty { return appleEmail.isEmpty ? "Compte Apple connecté" : "Compte Apple · \(appleEmail)" }
+        let c = profileContact.trimmingCharacters(in: .whitespaces)
+        if !c.isEmpty { return c }
+        return "Profil local · aucun compte lié"
+    }
+}
+
 @MainActor
 final class ProfileStore: ObservableObject {
     @Published var avatar: UIImage?
@@ -41,10 +58,14 @@ struct AvatarView: View {
             }
         }.frame(width: size, height: size).clipShape(Circle())
     }
-    private var displayName: String { settings.prefs.profileName.isEmpty ? settings.prefs.appleName : settings.prefs.profileName }
+    private var displayName: String { settings.prefs.displayFullName }
 }
 
+private enum ProfileField: Hashable { case first, last, contact }
+
 struct ProfileView: View {
+    var embedded = false
+    @FocusState private var field: ProfileField?
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var profile: ProfileStore
     @EnvironmentObject private var library: PhotoLibraryModel
@@ -66,7 +87,21 @@ struct ProfileView: View {
                             Image(systemName: "camera.circle.fill").font(.system(size: 28)).foregroundStyle(.white, pal.accent)
                         }
                     }.accessibilityLabel("Changer la photo de profil")
-                    TextField("Ton nom", text: $settings.prefs.profileName).multilineTextAlignment(.center).gFont(.title)
+                    VStack(spacing: 8) {
+                        TextField("Prénom", text: $settings.prefs.profileFirstName).focused($field, equals: .first)
+                            .textContentType(.givenName).submitLabel(.next).onSubmit { field = .last }
+                        Divider2()
+                        TextField("Nom", text: $settings.prefs.profileLastName).focused($field, equals: .last)
+                            .textContentType(.familyName).submitLabel(.next).onSubmit { field = .contact }
+                        Divider2()
+                        TextField("E-mail ou pseudo (facultatif)", text: $settings.prefs.profileContact).focused($field, equals: .contact)
+                            .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.emailAddress)
+                            .submitLabel(.done).onSubmit { field = nil }
+                    }
+                    .gFont(.body).padding(14)
+                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(pal.card))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(pal.border, lineWidth: 0.5))
+                    Text(settings.prefs.accountLine).gFont(.small).foregroundStyle(pal.textSecondary)
                     if profile.avatar != nil { Button("Retirer la photo") { profile.removeAvatar() }.gFont(.caption) }
                 }.padding(.top, 8)
 
@@ -97,7 +132,7 @@ struct ProfileView: View {
                         }
                     }
                 }
-                Button { dismiss(); app.select(.settings) } label: {
+                Button { if !embedded { dismiss() }; app.select(.settings) } label: {
                     HStack { Image(systemName: "gearshape"); Text("Préférences de l’app").gFont(.body); Spacer(); Image(systemName: "chevron.right") }
                         .padding(14).background(RoundedRectangle(cornerRadius: 16).fill(pal.card))
                 }.buttonStyle(PressableStyle())
@@ -105,7 +140,13 @@ struct ProfileView: View {
             }.padding(16)
         }
         .themedScreen().navigationTitle("Profil").navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("OK") { dismiss() } } }
+        .scrollDismissesKeyboard(.interactively)
+        .onReceive(NotificationCenter.default.publisher(for: .galerieResignFocus)) { _ in field = nil }
+        .onDisappear { field = nil }
+        .toolbar {
+            if !embedded { ToolbarItem(placement: .confirmationAction) { Button("OK") { field = nil; dismiss() } } }
+            ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Terminé") { field = nil }.fontWeight(.semibold) }
+        }
         .onChange(of: pickerItem) { _, item in
             Task { if let d = try? await item?.loadTransferable(type: Data.self) { profile.setAvatar(d); Haptics.shared.success() } }
         }

@@ -11,6 +11,7 @@ struct GalerieApp: App {
     @StateObject private var intelligence = IntelligenceIndex()
     @StateObject private var memories = MemoriesEngine()
     @StateObject private var geo = GeoIndex()
+    @StateObject private var backdrops = BackdropStore()
 
     var body: some Scene {
         WindowGroup {
@@ -24,6 +25,7 @@ struct GalerieApp: App {
                 .environmentObject(intelligence)
                 .environmentObject(memories)
                 .environmentObject(geo)
+                .environmentObject(backdrops)
         }
     }
 }
