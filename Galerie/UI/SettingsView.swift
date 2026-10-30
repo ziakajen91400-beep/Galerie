@@ -18,6 +18,7 @@ struct SettingsView: View {
     @EnvironmentObject private var memories: MemoriesEngine
     @EnvironmentObject private var geo: GeoIndex
     @EnvironmentObject private var app: AppState
+    @EnvironmentObject private var privateStore: PrivateStore
     @Environment(\.pal) private var pal
     @State private var search = ""
     @State private var confirmReset = false
@@ -255,6 +256,37 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 6) {
                 InfoRow(title: "Médias annotés", value: "\(MetadataStore.shared.items.count)")
                 if !MetadataStore.shared.items.isEmpty { Button("Effacer toutes les annotations", role: .destructive) { MetadataStore.shared.clear(); Haptics.shared.warning() }.gFont(.body) }
+            }
+        })
+
+        // Verrouillage et galerie distincte
+        let lk = "Verrouillage"
+        list.append(item("lock", lk, "Verrouiller avec Face ID", "face id touch id code verrouillage sécurité masqués supprimés sensibles") {
+            VStack(alignment: .leading, spacing: 10) {
+                ToggleRow(title: "Verrouiller avec \(AppLock.methodName)", subtitle: "Demande l’authentification à l’ouverture de l’app et à son retour au premier plan. Le code de l’iPhone sert de secours.", isOn: p.lockApp)
+                if settings.prefs.lockApp {
+                    HStack { Text("Verrouiller après").gFont(.body); Spacer()
+                        Picker("Délai", selection: p.lockDelay) { Text("Immédiatement").tag(0); Text("1 minute").tag(60); Text("5 minutes").tag(300); Text("15 minutes").tag(900) }.pickerStyle(.menu) }
+                }
+                if !AppLock.canAuthenticate { Text("Aucun code ni Face ID n’est configuré sur cet iPhone : le verrouillage ne pourra pas s’appliquer.").gFont(.small).foregroundStyle(.red) }
+            }
+        })
+        list.append(item("lockzones", lk, "Zones protégées", "masqués privée suppression face id") {
+            VStack(alignment: .leading, spacing: 10) {
+                ToggleRow(title: "Photos masquées", subtitle: "Demande l’authentification pour ouvrir l’album « Masqués ».", isOn: p.lockHidden)
+                ToggleRow(title: "Galerie distincte", subtitle: "Demande l’authentification pour ouvrir la galerie distincte.", isOn: p.lockPrivate)
+                ToggleRow(title: "Suppressions", subtitle: "Demande l’authentification avant de supprimer des photos ou vidéos.", isOn: p.lockDelete)
+                Text("« Supprimés récemment » est une section de l’app Photos d’iOS, que les apps tierces ne peuvent pas ouvrir : elle se protège dans Réglages › Photos (Face ID pour les albums masqués et supprimés).").gFont(.small).foregroundStyle(pal.textSecondary)
+            }
+        })
+        let pg = "Galerie distincte"
+        list.append(item("vault", pg, "Galerie distincte", "photos autre stockage iphone partager facebook fichiers enregistrer hors icloud") {
+            VStack(alignment: .leading, spacing: 10) {
+                ToggleRow(title: "Activer la galerie distincte", subtitle: "Médias gardés dans le stockage de l’iPhone, séparés de ta photothèque et de iCloud.", isOn: p.privateEnabled)
+                if settings.prefs.privateEnabled {
+                    Button { app.select(.vault) } label: { HStack { Image(systemName: "lock.rectangle.stack.fill").foregroundStyle(pal.accent).frame(width: 26); Text("Ouvrir la galerie distincte").gFont(.body); Spacer(); Text("\(privateStore.items.count)").gFont(.caption).foregroundStyle(pal.textSecondary) }.contentShape(Rectangle()) }.buttonStyle(.plain)
+                    Text("Pour y ajouter une photo depuis une autre app : Partager › « Galerie distincte », ou « Enregistrer dans Fichiers » › Sur mon iPhone › Galerie › Dépôt. Le partage direct demande que l’iPhone accorde un groupe d’apps à l’installation ; sinon, utilise Fichiers.").gFont(.small).foregroundStyle(pal.textSecondary)
+                }
             }
         })
 

@@ -404,6 +404,7 @@ struct ViewerView: View {
     let ns: Namespace.ID
     @EnvironmentObject private var app: AppState
     @EnvironmentObject private var settings: AppSettings
+    @EnvironmentObject private var lock: AppLock
     @Environment(\.pal) private var pal
 
     @State private var currentID: Int?
@@ -449,7 +450,7 @@ struct ViewerView: View {
         .fullScreenCover(isPresented: $slideshow) { SlideshowView(list: context.list, start: index) }
         .confirmationDialog("Supprimer ce média de la photothèque ?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Supprimer", role: .destructive) {
-                Task { if await MediaActions.delete([asset]) { close() } }
+                Task { if await lock.authorize(.delete, prefs: settings.prefs), await MediaActions.delete([asset]) { close() } }
             }
             Button("Annuler", role: .cancel) {}
         } message: { Text("Il ira dans « Supprimés récemment » de l’app Photos d’iOS. iOS demandera aussi sa propre confirmation.") }

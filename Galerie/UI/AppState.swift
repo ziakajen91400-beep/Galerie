@@ -2,18 +2,18 @@ import SwiftUI
 import Photos
 
 enum AppTab: String, CaseIterable, Identifiable {
-    case collections, search, library, map, settings, assistant, profile
+    case collections, search, library, map, settings, assistant, profile, vault
     var id: String { rawValue }
     var title: String {
         switch self {
         case .collections: return "Collections"; case .search: return "Recherche"; case .library: return "Photothèque"
-        case .map: return "Carte"; case .settings: return "Réglages"; case .assistant: return "Assistant"; case .profile: return "Profil"
+        case .map: return "Carte"; case .settings: return "Réglages"; case .assistant: return "Assistant"; case .profile: return "Profil"; case .vault: return "Galerie distincte"
         }
     }
     var icon: String {
         switch self {
         case .collections: return "square.stack.fill"; case .search: return "magnifyingglass"; case .library: return "photo.on.rectangle.angled"
-        case .map: return "map.fill"; case .settings: return "gearshape.fill"; case .assistant: return "sparkles"; case .profile: return "person.crop.circle.fill"
+        case .map: return "map.fill"; case .settings: return "gearshape.fill"; case .assistant: return "sparkles"; case .profile: return "person.crop.circle.fill"; case .vault: return "lock.rectangle.stack.fill"
         }
     }
     /// Photothèque et Réglages ne peuvent pas être retirés de la barre : l’app resterait inaccessible.
@@ -24,7 +24,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         switch self {
         case .collections: return "Albums, catégories, souvenirs"; case .search: return "Date, lieu, texte, objets"
         case .library: return "Toute la photothèque"; case .map: return "Photos géolocalisées"
-        case .settings: return "Apparence, haptique, confidentialité"; case .assistant: return "Suggestions locales"; case .profile: return "Photo, nom, compte"
+        case .settings: return "Apparence, haptique, confidentialité"; case .assistant: return "Suggestions locales"; case .profile: return "Photo, nom, compte"; case .vault: return "Médias stockés dans l’app, hors iCloud"
         }
     }
 }
@@ -75,6 +75,8 @@ struct RootView: View {
     @EnvironmentObject var geo: GeoIndex
     @EnvironmentObject var memories: MemoriesEngine
     @EnvironmentObject var intelligence: IntelligenceIndex
+    @EnvironmentObject var lock: AppLock
+    @EnvironmentObject var privateStore: PrivateStore
     @Environment(\.pal) private var pal
     @Environment(\.scenePhase) private var scenePhase
     @Namespace private var zoomNS
@@ -117,7 +119,15 @@ struct RootView: View {
         }
         .onChange(of: settings.prefs.libraryKey) { _, _ in library.configure(prefs: settings.prefs); library.reload() }
         .onChange(of: library.version) { _, _ in geo.invalidate(); memories.invalidate() }
-        .onChange(of: scenePhase) { _, p in if p == .active { library.refreshAuthorization() } }
+        .onChange(of: scenePhase) { _, p in
+            if p == .active { library.refreshAuthorization(); if settings.prefs.privateEnabled { privateStore.importPending() } }
+            if p == .background { app.closeViewer() }   // jamais de photo ouverte derrière un verrou
+            lock.scenePhaseChanged(p)
+        }
+        .onChange(of: settings.prefs.lockApp) { _, _ in lock.configure(settings.prefs) }
+        .onChange(of: settings.prefs.lockDelay) { _, _ in lock.configure(settings.prefs) }
+        .onAppear { lock.configure(settings.prefs); privateStore.reload(); if lock.locked { Task { await lock.unlock() } } }
+        .overlay { if lock.covered { LockScreenView(lock: lock).transition(.identity) } }
     }
 
     @ViewBuilder private func tabContent(_ t: AppTab) -> some View {
@@ -129,6 +139,7 @@ struct RootView: View {
         case .settings: SettingsView()
         case .assistant: AssistantView()
         case .profile: NavigationStack { ProfileView(embedded: true) }
+        case .vault: PrivateGalleryView()
         }
     }
 }

@@ -73,6 +73,7 @@ struct MediaGridView: View {
 
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var app: AppState
+    @EnvironmentObject private var lock: AppLock
     @Environment(\.pal) private var pal
     @Environment(\.zoomNS) private var zoomNS
 
@@ -301,6 +302,7 @@ struct MediaGridView: View {
     private func deleteSelected() {
         let items = Array(selected.values)
         Task {
+            guard await lock.authorize(.delete, prefs: settings.prefs) else { return }
             let ok = await MediaActions.delete(items)
             if ok { exitSelection() }
         }

@@ -10,6 +10,7 @@ settings:
     MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
     DEVELOPMENT_TEAM: ""
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
 targets:
   Galerie:
     type: application
@@ -30,11 +31,34 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         NSPhotoLibraryUsageDescription: "Galerie affiche, organise et modifie les photos et vidéos de ta photothèque. Rien n'est envoyé hors de ton appareil."
+        NSFaceIDUsageDescription: "Galerie utilise Face ID pour verrouiller l'app, les photos masquées et la galerie distincte."
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
         NSPhotoLibraryAddUsageDescription: "Galerie enregistre dans ta photothèque les copies et les modifications que tu valides."
         LSApplicationQueriesSchemes:
           - comgooglemaps
         ITSAppUsesNonExemptEncryption: false
         UIAppFonts: []
+    dependencies:
+      - target: GalerieShare
+        embed: true
+    postBuildScripts:
+      - name: Entitlements (groupe d'apps) pour l'IPA non signé
+        basedOnDependencyAnalysis: false
+        script: |
+          # Build non signé (CI) : on pose une signature ad hoc qui embarque les entitlements, pour que
+          # AltStore / SideStore / Sideloadly / TrollStore puissent reprendre le groupe d'apps lors de la re-signature.
+          if [ "$PLATFORM_NAME" = "iphoneos" ] && [ "$CODE_SIGNING_ALLOWED" = "NO" ]; then
+            APP="$TARGET_BUILD_DIR/$WRAPPER_NAME"
+            EXT="$APP/PlugIns/GalerieShare.appex"
+            if [ -d "$EXT" ]; then /usr/bin/codesign --force --sign - --entitlements "$SRCROOT/Config/GalerieShare.entitlements" "$EXT" || echo "warning: signature ad hoc de l'extension ignorée"; fi
+            /usr/bin/codesign --force --sign - --entitlements "$SRCROOT/Config/Galerie.entitlements" "$APP" || echo "warning: signature ad hoc ignorée"
+          fi
+          exit 0
+    entitlements:
+      path: Config/Galerie.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.perso.galerie]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.perso.galerie
@@ -42,12 +66,37 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "Icon-Lens Icon-Gradient Icon-Glass Icon-Mono Icon-Rose Icon-Violet Icon-Blue Icon-Dark Icon-Light Icon-Multi Icon-Photo Icon-Sakura Icon-Sora Icon-Midori Icon-Akane Icon-Murasaki Icon-Yuki Icon-Luna Icon-Hikari Icon-Nekomi"
         # --- Connexion avec Apple (compte développeur payant requis) ---
-        # 1) décommente la ligne suivante ; 2) décommente "entitlements" plus bas.
+        # 1) décommente la ligne suivante ; 2) ajoute com.apple.developer.applesignin: [Default] aux "properties" de "entitlements" ci-dessus.
         # SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) APPLE_SIGN_IN"
-    # entitlements:
-    #   path: Galerie/Galerie.entitlements
-    #   properties:
-    #     com.apple.developer.applesignin: [Default]
+  GalerieShare:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "18.5"
+    sources:
+      - path: ShareExtension
+      - path: Galerie/Shared/PrivateShared.swift
+    info:
+      path: Config/ShareInfo.plist
+      properties:
+        CFBundleDisplayName: Galerie distincte
+        CFBundleDevelopmentRegion: fr
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsImageWithMaxCount: 30
+              NSExtensionActivationSupportsMovieWithMaxCount: 10
+    entitlements:
+      path: Config/GalerieShare.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.perso.galerie]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.perso.galerie.share
+        TARGETED_DEVICE_FAMILY: "1"
+        SKIP_INSTALL: YES
+        PRODUCT_NAME: GalerieShare
   GalerieTests:
     type: bundle.unit-test
     platform: iOS

@@ -268,9 +268,11 @@ struct CollectionDetail: View {
     @EnvironmentObject private var intelligence: IntelligenceIndex
     @State private var list: AssetList = .empty
     var body: some View {
-        MediaGridView(list: list, token: "\(def.id)-\(library.version)-\(intelligence.entries.count)", prefix: "col", emptyIcon: def.icon, emptyTitle: "Aucun élément", emptyMessage: "Cette catégorie est vide pour l’instant.")
-            .themedScreen().navigationTitle(def.title).navigationBarTitleDisplayMode(.inline)
-            .task(id: library.version) { list = def.load(prefs: settings.prefs, index: intelligence) }
+        LockedContent(scope: .hidden, enabled: def.id == "hidden" && settings.prefs.lockHidden, title: "Photos masquées verrouillées") {
+            MediaGridView(list: list, token: "\(def.id)-\(library.version)-\(intelligence.entries.count)", prefix: "col", emptyIcon: def.icon, emptyTitle: "Aucun élément", emptyMessage: "Cette catégorie est vide pour l’instant.")
+                .task(id: library.version) { list = def.load(prefs: settings.prefs, index: intelligence) }
+        }
+        .themedScreen().navigationTitle(def.title).navigationBarTitleDisplayMode(.inline)
     }
 }
 

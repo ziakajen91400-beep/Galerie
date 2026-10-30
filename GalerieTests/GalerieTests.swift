@@ -144,6 +144,30 @@ final class GalerieTests: XCTestCase {
             XCTAssertNotNil(AppIconOption.matching(character: c), "icône assortie manquante : \(c)")
         }
     }
+    func testVaultTabAndSharedHelpers() {
+        XCTAssertTrue(AppSettings.sanitizeDock(["vault", "library", "settings"]).contains(.vault))
+        XCTAssertTrue(SharedGroup.isSupported(URL(fileURLWithPath: "/tmp/a.HEIC")))
+        XCTAssertTrue(SharedGroup.isSupported(URL(fileURLWithPath: "/tmp/b.mov")))
+        XCTAssertFalse(SharedGroup.isSupported(URL(fileURLWithPath: "/tmp/c.pdf")))
+        XCTAssertEqual(SharedGroup.mainBundleID().hasSuffix(".share"), false)
+    }
+    func testLockPrefsDefaultsOff() {
+        let p = Prefs()
+        XCTAssertFalse(p.lockApp); XCTAssertFalse(p.lockHidden); XCTAssertFalse(p.lockPrivate); XCTAssertFalse(p.lockDelete)
+        XCTAssertTrue(p.privateEnabled)
+    }
+    @MainActor
+    func testPrivateStoreImportAndDelete() throws {
+        let store = PrivateStore()
+        store.reload()
+        let before = store.items.count
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("t-\(UUID().uuidString).jpg")
+        try UIGraphicsImageRenderer(size: CGSize(width: 20, height: 20)).jpegData(withCompressionQuality: 0.8) { c in UIColor.red.setFill(); c.fill(CGRect(x: 0, y: 0, width: 20, height: 20)) }.write(to: tmp)
+        XCTAssertTrue(store.add(copying: tmp))
+        XCTAssertEqual(store.items.count, before + 1)
+        store.delete(Array(store.items.prefix(1)))
+        XCTAssertEqual(store.items.count, before)
+    }
     func testOriginalIconIsRevertible() {
         let o = AppIconOption.all.first { $0.id.isEmpty }
         XCTAssertNotNil(o)

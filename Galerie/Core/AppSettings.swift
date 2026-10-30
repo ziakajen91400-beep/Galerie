@@ -106,6 +106,14 @@ struct Prefs: Codable, Equatable {
     var appleUserID: String = ""
     var appleEmail: String = ""
     var appleName: String = ""
+    // Verrouillage Face ID / Touch ID / code de l’iPhone
+    var lockApp: Bool = false
+    var lockHidden: Bool = false
+    var lockPrivate: Bool = false
+    var lockDelete: Bool = false
+    var lockDelay: Int = 0
+    // Galerie distincte (stockée dans l’app, hors photothèque iCloud)
+    var privateEnabled: Bool = true
 
     /// Tout changement de ces champs impose de recharger la photothèque.
     var libraryKey: String { "\(sortAscending)-\(showScreenshots)-\(showVideos)" }

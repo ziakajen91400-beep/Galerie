@@ -53,3 +53,11 @@ Les images sont générées par `python3 Tools/make_characters.py` (Pillow) et i
 
 - Connexion Google : exige un client OAuth Google Cloud (identifiants propres à ton compte) ; aucun faux bouton n'a été ajouté.
 - Connexion Apple : nécessite un compte développeur payant (voir plus haut).
+
+## Verrouillage Face ID
+
+Réglages › Verrouillage : verrouille l'app à l'ouverture et au retour au premier plan (délai au choix), et protège séparément l'album « Masqués », la galerie distincte et les suppressions. Authentification réelle d'iOS (LocalAuthentication) avec le code de l'iPhone en secours ; l'app ne stocke aucun secret. « Supprimés récemment » appartient à l'app Photos d'iOS (inaccessible aux apps tierces) : se protège dans Réglages iOS › Photos.
+
+## Galerie distincte
+
+Médias stockés dans l'app (stockage de l'iPhone, exclus de la sauvegarde iCloud), séparés de la photothèque. Ajout : menu Partager › « Galerie distincte » (extension `GalerieShare`, via un groupe d'apps `group.com.perso.galerie`), « Enregistrer dans Fichiers » › Sur mon iPhone › Galerie › Dépôt (toujours disponible), ou import depuis Photos/Fichiers dans l'app. Si l'iPhone n'accorde pas le groupe d'apps à l'installation (signature), le partage direct affiche un message et le dossier Dépôt reste utilisable.
