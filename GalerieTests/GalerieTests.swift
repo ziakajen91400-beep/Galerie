@@ -144,7 +144,9 @@ final class GalerieTests: XCTestCase {
             XCTAssertNotNil(AppIconOption.matching(character: c), "icône assortie manquante : \(c)")
         }
     }
+        @MainActor
     func testVaultTabAndSharedHelpers() {
+
         XCTAssertTrue(AppSettings.sanitizeDock(["vault", "library", "settings"]).contains(.vault))
         XCTAssertTrue(SharedGroup.isSupported(URL(fileURLWithPath: "/tmp/a.HEIC")))
         XCTAssertTrue(SharedGroup.isSupported(URL(fileURLWithPath: "/tmp/b.mov")))
