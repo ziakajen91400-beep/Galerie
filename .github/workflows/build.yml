@@ -91,7 +91,8 @@ jobs:
           path: Galerie-unsigned.ipa
 
       - name: Publier l'IPA dans les Releases (téléchargement direct, sans zip)
-        if: success() && matrix.os == 'macos-26'
+                if: success() && matrix.os == 'macos-15'
+
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
