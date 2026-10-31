@@ -221,7 +221,7 @@ final class BackdropStore: ObservableObject {
     private var dir: URL { appSupportURL("backdrops") }
 
     init() {
-        if let files = try? FileManager.default.contentsOfDirectory(at: dir, includeHiddenFiles: false) {
+                if let files = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
             for f in files where f.pathExtension == "jpg" {
                 if let d = try? Data(contentsOf: f), let img = UIImage(data: d) { images[f.deletingPathExtension().lastPathComponent] = img }
             }
